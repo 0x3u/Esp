@@ -27,20 +27,28 @@ local ESP = {
 	Drawing = {
 		Chams = {
 			Enabled = false,
-			Color = Color3.fromRGB(243, 116, 166),
-			Transparency = 0.5,
+			Thermal = false,
+			FillRGB = Color3.fromRGB(243, 116, 166),
+			Fill_Transparency = 50,
+			OutlineRGB = Color3.fromRGB(243, 116, 166),
+			Outline_Transparency = 50,
+			VisibleCheck = false,
+		},
+		Names = {
+			Enabled = true,
+			RGB = Color3.fromRGB(255, 255, 255),
 		},
 		Distances = {
-			Enabled = false,
+			Enabled = true,
 			Position = "Text",
 			RGB = Color3.fromRGB(255, 255, 255),
 		},
 		Weapons = {
-			Enabled = false,
+			Enabled = true,
 			RGB = Color3.fromRGB(255, 255, 255),
 		},
 		Boxes = {
-			Animate = false,
+			Animate = true,
 			RotationSpeed = 300,
 			Gradient = false,
 			GradientRGB1 = Color3.fromRGB(243, 116, 116),
@@ -49,28 +57,28 @@ local ESP = {
 			GradientFillRGB1 = Color3.fromRGB(243, 116, 116),
 			GradientFillRGB2 = Color3.fromRGB(0, 0, 0),
 			Filled = {
-				Enabled = false,
+				Enabled = true,
 				Transparency = 0.75,
 				RGB = Color3.fromRGB(0, 0, 0),
 			},
 			Full = {
-				Enabled = false,
+				Enabled = true,
 				RGB = Color3.fromRGB(255, 255, 255),
 			},
 			Corner = {
-				Enabled = false,
+				Enabled = true,
 				RGB = Color3.fromRGB(255, 255, 255),
 				Thickness = 1,
 				Length = 15,
 			},
 		},
 		Skeleton = {
-			Enabled = false,
+			Enabled = true,
 			RGB = Color3.fromRGB(255, 255, 255),
 			Thickness = 1,
 		},
 		TeamCheck = {
-			Enabled = false,
+			Enabled = true,
 		},
 	},
 }
@@ -327,14 +335,14 @@ local function CreateESP(CharacterModel)
 	local ESPFolder = Functions:Create("Folder", { Parent = ScreenGui, Name = GuiName })
 	ActiveESPs[CharacterModel] = ESPFolder
 
-	local DistanceLabel = Functions:Create("TextLabel", {
+	local Name = Functions:Create("TextLabel", {
 		Parent = ESPFolder,
-		Name = "DistanceLabel",
+		Name = "NameLabel",
 		Position = UDim2.new(0.5, 0, 0, -11),
 		Size = UDim2.new(0, 100, 0, 20),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		TextColor3 = ESP.Drawing.Distances.RGB,
+		TextColor3 = Color3.fromRGB(255, 255, 255),
 		Font = Enum.Font.Code,
 		TextSize = ESP.FontSize,
 		TextStrokeTransparency = 0,
@@ -394,12 +402,10 @@ local function CreateESP(CharacterModel)
 	local Chams = Functions:Create("Highlight", {
 		Parent = ESPFolder,
 		Name = "Chams",
-		FillColor = ESP.Drawing.Chams.Color,
-		FillTransparency = ESP.Drawing.Chams.Transparency,
-		OutlineColor = ESP.Drawing.Chams.Color,
-		OutlineTransparency = ESP.Drawing.Chams.Transparency,
+		FillTransparency = 1,
+		OutlineTransparency = 0,
+		OutlineColor = Color3.fromRGB(119, 120, 255),
 		DepthMode = "AlwaysOnTop",
-		Enabled = false,
 	})
 
 	local cornerThickness = ESP.Drawing.Boxes.Corner.Thickness
@@ -449,7 +455,7 @@ local function CreateESP(CharacterModel)
 
 	local function HideESP()
 		Box.Visible = false
-		DistanceLabel.Visible = false
+		Name.Visible = false
 		Weapon.Visible = false
 		LeftTopHorizontal.Visible = false
 		LeftTopVertical.Visible = false
@@ -514,7 +520,7 @@ local function CreateESP(CharacterModel)
 			if ESP.FadeOut.OnDistance then
 				Functions:FadeOutOnDist(Box, Dist)
 				Functions:FadeOutOnDist(Outline, Dist)
-				Functions:FadeOutOnDist(DistanceLabel, Dist)
+				Functions:FadeOutOnDist(Name, Dist)
 				Functions:FadeOutOnDist(Weapon, Dist)
 				Functions:FadeOutOnDist(Chams, Dist)
 				Functions:FadeOutOnDist(LeftTopHorizontal, Dist)
@@ -529,10 +535,15 @@ local function CreateESP(CharacterModel)
 
 			Chams.Adornee = CharacterModel
 			Chams.Enabled = ESP.Drawing.Chams.Enabled
-			Chams.FillColor = ESP.Drawing.Chams.Color
-			Chams.OutlineColor = ESP.Drawing.Chams.Color
-			Chams.FillTransparency = ESP.Drawing.Chams.Transparency
-			Chams.OutlineTransparency = ESP.Drawing.Chams.Transparency
+			Chams.FillColor = ESP.Drawing.Chams.FillRGB
+			Chams.OutlineColor = ESP.Drawing.Chams.OutlineRGB
+
+			if ESP.Drawing.Chams.Thermal then
+				local breathe_effect = math.atan(math.sin(tick() * 2)) * 2 / math.pi
+				Chams.FillTransparency = (ESP.Drawing.Chams.Fill_Transparency / 100) * (1 - (breathe_effect * 0.1))
+				Chams.OutlineTransparency = ESP.Drawing.Chams.Outline_Transparency
+			end
+			Chams.DepthMode = ESP.Drawing.Chams.VisibleCheck and "Occluded" or "AlwaysOnTop"
 
 			local cornerVisible = ESP.Drawing.Boxes.Corner.Enabled
 			local cColor = ESP.Drawing.Boxes.Corner.RGB
@@ -585,19 +596,19 @@ local function CreateESP(CharacterModel)
 			Box.Position = UDim2.new(0, Pos.X - w / 2, 0, Pos.Y - h / 2 + verticalOffset)
 			Box.Size = UDim2.new(0, w, 0, h)
 
-			local full = ESP.Drawing.Boxes.Full.Enabled
-			local corner = ESP.Drawing.Boxes.Corner.Enabled
-			local filled = ESP.Drawing.Boxes.Filled.Enabled
+local full = ESP.Drawing.Boxes.Full.Enabled
+local corner = ESP.Drawing.Boxes.Corner.Enabled
+local filled = ESP.Drawing.Boxes.Filled.Enabled
 
-			Box.Visible = full or (corner and filled)
+Box.Visible = full or (corner and filled)
 
-			if filled then
-				Box.BackgroundTransparency = ESP.Drawing.Boxes.Filled.Transparency
-			else
-				Box.BackgroundTransparency = 1
-			end
+if filled then
+    Box.BackgroundTransparency = ESP.Drawing.Boxes.Filled.Transparency
+else
+    Box.BackgroundTransparency = 1 
+end
 
-			Outline.Enabled = full and ESP.Drawing.Boxes.Gradient
+Outline.Enabled = full and ESP.Drawing.Boxes.Gradient
 
 			local CurrentTick = tick()
 			local DeltaTime = CurrentTick - LastTick
@@ -614,7 +625,17 @@ local function CreateESP(CharacterModel)
 
 			LastTick = CurrentTick
 
-			local weaponVisible = false
+			Name.Visible = ESP.Drawing.Names.Enabled
+			local nameText = CharacterModel.Name
+
+			if ESP.Drawing.Distances.Enabled then
+				nameText = string.format("%s [%d]", nameText, math.floor(Dist))
+			end
+
+			Name.Text = string.format('(<font color="rgb(%d, %d, %d)">T</font>) %s', 255, 255, 255, nameText)
+			Name.TextColor3 = ESP.Drawing.Names.RGB
+			Name.Position = UDim2.new(0, Pos.X, 0, Pos.Y - h / 2 - 9 + verticalOffset)
+
 			Weapon.Visible = ESP.Drawing.Weapons.Enabled
 			if ESP.Drawing.Weapons.Enabled then
 				local weaponModel = findWeaponInCharacter(CharacterModel)
@@ -622,18 +643,9 @@ local function CreateESP(CharacterModel)
 					Weapon.Text = weaponModel.Name
 					Weapon.TextColor3 = ESP.Drawing.Weapons.RGB
 					Weapon.Position = UDim2.new(0, Pos.X, 0, Pos.Y + h / 2 + 9 + verticalOffset)
-					weaponVisible = true
 				else
 					Weapon.Visible = false
 				end
-			end
-
-			DistanceLabel.Visible = ESP.Drawing.Distances.Enabled
-			if ESP.Drawing.Distances.Enabled then
-				DistanceLabel.Text = string.format("[%d]", math.floor(Dist))
-				DistanceLabel.TextColor3 = ESP.Drawing.Distances.RGB
-				local distOffset = weaponVisible and 23 or 9
-				DistanceLabel.Position = UDim2.new(0, Pos.X, 0, Pos.Y + h / 2 + distOffset + verticalOffset)
 			end
 
 			if ESP.Drawing.Skeleton.Enabled and not ActiveSkeletons[CharacterModel] then
@@ -763,12 +775,6 @@ ESP.SetCornerLength = function(length)
 	if type(length) == "number" and length > 0 then
 		ESP.Drawing.Boxes.Corner.Length = length
 	end
-end
-
-ESP.SetChams = function(enabled, color, transparency)
-	ESP.Drawing.Chams.Enabled = enabled
-	if color then ESP.Drawing.Chams.Color = color end
-	if transparency then ESP.Drawing.Chams.Transparency = transparency end
 end
 
 return ESP
