@@ -1,0 +1,203 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local pingId = {
+	Drone = "rbxassetid://95428092249797",
+	Camera = "rbxassetid://70956972762553",
+	BreachCharge = "rbxassetid://107017238142850",
+	RemoteC4 = "rbxassetid://131938694361268",
+	ProximityAlarm = "rbxassetid://119002926213252",
+	StickyCamera = "rbxassetid://107359883904453",
+	Claymore = "rbxassetid://102628388684642",
+}
+
+local pingColor = {
+	Drone = Color3.fromRGB(100, 100, 100),
+	Camera = Color3.fromRGB(100, 100, 100),
+	BreachCharge = Color3.fromRGB(100, 100, 100),
+	RemoteC4 = Color3.fromRGB(100, 100, 100),
+	ProximityAlarm = Color3.fromRGB(100, 100, 100),
+	StickyCamera = Color3.fromRGB(100, 100, 100),
+	Claymore = Color3.fromRGB(100, 100, 100),
+}
+
+local EspTable = {
+	Drone = { Enabled = false, Connections = {}, PingObjects = {} },
+	Camera = { Enabled = false, Connections = {}, PingObjects = {} },
+	BreachCharge = { Enabled = false, Connections = {}, PingObjects = {} },
+	RemoteC4 = { Enabled = false, Connections = {}, PingObjects = {} },
+	ProximityAlarm = { Enabled = false, Connections = {}, PingObjects = {} },
+	StickyCamera = { Enabled = false, Connections = {}, PingObjects = {} },
+}
+
+local gadgetConfigs = {
+	Drone = { name = "Drone", part = nil },
+	Camera = { name = "Camera", part = nil },
+	BreachCharge = { name = "BreachCharge", part = "Root" },
+	RemoteC4 = { name = "RemoteC4", part = "Root" },
+	ProximityAlarm = { name = "ProximityAlarm", part = "Root" },
+	StickyCamera = { name = "StickyCamera", part = "Root" },
+}
+
+local function createPingObject(gadgetType, parent, model, attachTo)
+	local pingModule = ReplicatedStorage.Modules.Effects.PingObject
+	if not pingModule then
+		return
+	end
+
+	local pingClone = pingModule:Clone()
+	pingClone.Parent = parent
+
+	pingClone.Adornee = attachTo or model
+	pingClone.Enabled = true
+
+	pingClone.Frame.BackgroundColor3 = pingColor[gadgetType]
+	pingClone.Arrow.ImageColor3 = pingColor[gadgetType]
+	pingClone.Frame.ImageLabel.Image = pingId[gadgetType]
+
+	return pingClone
+end
+
+local function setupCameraESP()
+	for _, model in ipairs(Workspace:GetChildren()) do
+		if model:IsA("Model") then
+			local folder = model:FindFirstChildWhichIsA("Folder")
+			if folder then
+				local defaultCameras = folder:FindFirstChild("DefaultCameras")
+				if defaultCameras then
+					for _, cameraModel in ipairs(defaultCameras:GetChildren()) do
+						if cameraModel:IsA("Model") then
+							if not EspTable.Camera.PingObjects[cameraModel] then
+								local ping = createPingObject("Camera", Workspace.CurrentCamera, cameraModel)
+								if ping then
+									EspTable.Camera.PingObjects[cameraModel] = ping
+									local camPart = cameraModel:FindFirstChild("Cam")
+									if camPart and ping:FindFirstChild("testname") then
+										ping.testname = camPart
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+local function setupGadgetESP(gadgetType)
+	local config = gadgetConfigs[gadgetType]
+	for _, model in ipairs(Workspace:GetChildren()) do
+		if model.Name == config.name and model:IsA("Model") then
+			if not EspTable[gadgetType].PingObjects[model] then
+				local attachPart = config.part and model:FindFirstChild(config.part)
+				local ping = createPingObject(gadgetType, Workspace.CurrentCamera, model, attachPart)
+				if ping then
+					EspTable[gadgetType].PingObjects[model] = ping
+				end
+			end
+		end
+	end
+end
+
+local function cleanupPings(gadgetType)
+	local pingTable = EspTable[gadgetType].PingObjects
+	for model, ping in pairs(pingTable) do
+		if ping and ping.Parent then
+			ping:Destroy()
+		end
+	end
+	EspTable[gadgetType].PingObjects = {}
+end
+
+local function createGadgetConnection(gadgetType)
+	local config = gadgetConfigs[gadgetType]
+
+	EspTable[gadgetType].Connections.childAdded = Workspace.ChildAdded:Connect(function(child)
+		if EspTable[gadgetType].Enabled and child.Name == config.name and child:IsA("Model") then
+			task.wait(0.1)
+			local attachPart = config.part and child:FindFirstChild(config.part)
+			local ping = createPingObject(gadgetType, Workspace.CurrentCamera, child, attachPart)
+			if ping then
+				EspTable[gadgetType].PingObjects[child] = ping
+			end
+		end
+	end)
+
+	EspTable[gadgetType].Connections.childRemoved = Workspace.ChildRemoved:Connect(function(child)
+		if EspTable[gadgetType].PingObjects[child] then
+			local ping = EspTable[gadgetType].PingObjects[child]
+			if ping and ping.Parent then
+				ping:Destroy()
+			end
+			EspTable[gadgetType].PingObjects[child] = nil
+		end
+	end)
+end
+
+for gadgetType, _ in pairs(gadgetConfigs) do
+	if gadgetType ~= "Camera" then
+		createGadgetConnection(gadgetType)
+	end
+end
+
+EspTable.Camera.Connections.childAdded = Workspace.ChildAdded:Connect(function(child)
+	if EspTable.Camera.Enabled and child:IsA("Model") then
+		task.wait(0.1)
+		setupCameraESP()
+	end
+end)
+
+EspTable.Camera.Connections.childRemoved = Workspace.ChildRemoved:Connect(function(child)
+	if EspTable.Camera.PingObjects[child] then
+		local ping = EspTable.Camera.PingObjects[child]
+		if ping and ping.Parent then
+			ping:Destroy()
+		end
+		EspTable.Camera.PingObjects[child] = nil
+	end
+end)
+
+local function updateESP(gadgetType, state)
+	EspTable[gadgetType].Enabled = state
+
+	if state then
+		if gadgetType == "Camera" then
+			setupCameraESP()
+		else
+			setupGadgetESP(gadgetType)
+		end
+	else
+		cleanupPings(gadgetType)
+	end
+end
+
+local Esp = {}
+local gadgetTypes = { "Drone", "Camera", "BreachCharge", "RemoteC4", "ProximityAlarm", "StickyCamera" }
+
+for _, gadgetType in ipairs(gadgetTypes) do
+	Esp[gadgetType] = {
+		getEnabled = function()
+			return EspTable[gadgetType].Enabled
+		end,
+		setEnabled = function(state)
+			updateESP(gadgetType, state)
+		end,
+	}
+
+	local metaTable = {}
+	metaTable.__index = function(self, key)
+		if key == "Enabled" then
+			return EspTable[gadgetType].Enabled
+		end
+		return Esp[gadgetType][key]
+	end
+	metaTable.__newindex = function(self, key, value)
+		if key == "Enabled" then
+			updateESP(gadgetType, value)
+		else
+			rawset(self, key, value)
+		end
+	end
+	setmetatable(Esp[gadgetType], metaTable)
+end
