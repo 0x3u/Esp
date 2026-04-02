@@ -201,3 +201,5 @@ for _, gadgetType in ipairs(gadgetTypes) do
 	end
 	setmetatable(Esp[gadgetType], metaTable)
 end
+
+return Esp
