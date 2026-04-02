@@ -16,7 +16,7 @@ local ActiveESPs = {}
 local ActiveSkeletons = {}
 
 local ESP = {
-	Enabled = true,
+	Enabled = false,
 	MaxDistance = 1000,
 	FontSize = 11,
 	FadeOut = {
